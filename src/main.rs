@@ -82,11 +82,13 @@ fn decrypt_and_check_padding(ciphertext: &[u8], key: &[u8; 16], iv: &[u8; 16]) -
     loop {
         let result = decryptor.decrypt(&mut read_buffer, &mut write_buffer, true);  // Decrypt data from the read buffer to the write buffer
         match result {
-            Ok(BufferResult::BufferUnderflow) => {  // If all data has been decrypted
+            // If all data has been decrypted
+            Ok(BufferResult::BufferUnderflow) => { 
                 decrypted_data.extend_from_slice(write_buffer.take_read_buffer().take_remaining());  // Append the remaining decrypted data to the result vector
-                break;  // Exit the loop
+                break; 
             }
-            Ok(BufferResult::BufferOverflow) => {  // If the write buffer is full
+            // If the write buffer is full
+            Ok(BufferResult::BufferOverflow) => { 
                 decrypted_data.extend_from_slice(write_buffer.take_read_buffer().take_remaining());  // Append the decrypted data to the result vector
             }
             Err(err) => return Err(DecryptionError::SymmetricCipherError(err)),  // Return a decryption error if an error occurs
@@ -95,8 +97,7 @@ fn decrypt_and_check_padding(ciphertext: &[u8], key: &[u8; 16], iv: &[u8; 16]) -
 
     let padding_length = decrypted_data.last().cloned().unwrap_or(0);  // Get the length of the padding
 
-    // Perform padding oracle attack
-    let mut modified_ciphertext = ciphertext.to_vec();
+    let mut modified_ciphertext = ciphertext.to_vec(); // Perform padding oracle attack
 
     // Iterate over the indices of ciphertext in reverse order, with a step of 16 (block size)
     for i in (0..ciphertext.len()).rev().step_by(16) {
