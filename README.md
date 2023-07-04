@@ -12,10 +12,6 @@ Now let's look at how the code performs a padding oracle attack:
 
 In this code, the padding oracle attack is performed inside a loop that iterates through the data block indexes in reverse order, starting from the last block and ending with the first. This is because in CBC data encryption, each data block depends on the previous encrypted block, and changing the last data block affects the validity of padding in that block.
 
-Now let's look at how the code performs a padding oracle attack:
-
-In this code, the padding oracle attack is performed inside a loop that iterates through the data block indexes in reverse order, starting from the last block and ending with the first. This is because in CBC data encryption, each data block depends on the previous encrypted block, and changing the last data block affects the validity of padding in that block.
-
 The padded-oracle attack algorithm involves the following steps:
 
 1. Creating a vector `modified_ciphertext` which is a copy of the original encrypted text (`ciphertext`). This is necessary to modify the blocks and check the validity of the paddings.
