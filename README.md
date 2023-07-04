@@ -2,13 +2,11 @@
 
 This code is an implementation of an oracle attack on the AES block cipher in CBC (Cipher Block Chaining) mode. Let's take a closer look at it:
 
-As it is supposed to be in the task, the code has 2 functions (except for the main one):
-
 1. The `encrypt` function takes a key, initializing vector (iv) and an array of plaintexts as input parameters and returns the encrypted data, the encoded source text and the original text as Result<(Vec<u8>, String, Vec<u8>)> or EncryptionError. The function performs symmetric AES encryption in CBC mode with PKCS7 paddings added.
 
 2. The `decrypt_and_check_padding` function takes the encrypted data (ciphertext), key (key) and initializing vector (iv) as input parameters and returns Result<bool> indicating whether padding is valid or not or DecryptionError. This function is used to decrypt data and verify the validity of padding with a padding oracle attack. It is important to note that no padding is used here during the decryption (it works in NoPadding mode) just because of the attack demonstration.
 
-And the main `main` function generates a key and an initializing vector, and then runs a loop to encrypt and decrypt the messages. It works as a demonstration of the user session: prOn each iteration of the loop, a randomly chosen message from the PLAINTEXTS array is encrypted, and then a decryption and padding attack is attempted. The results of the encryption, decryption, and verification are displayed on the screen.
+3. And the main `main` function generates a key and an initializing vector, and then runs a loop to encrypt and decrypt the messages. It works as a demonstration of the user session: prOn each iteration of the loop, a randomly chosen message from the PLAINTEXTS array is encrypted, and then a decryption and padding attack is attempted. The results of the encryption, decryption, and verification are displayed on the screen.
 
 Now let's look at how the code performs a padding oracle attack:
 
