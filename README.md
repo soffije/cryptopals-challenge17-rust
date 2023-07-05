@@ -2,11 +2,17 @@
 
 This code is an implementation of an oracle attack on the AES block cipher in CBC (Cipher Block Chaining) mode. Let's take a closer look at it:
 
-1. The `encrypt` function takes a key, initializing vector (iv) and an array of plaintexts as input parameters and returns the encrypted data, the encoded source text and the original text as Result<(Vec<u8>, String, Vec<u8>)> or EncryptionError. The function performs symmetric AES encryption in CBC mode with PKCS7 paddings added.
+The code defines three main functions: `encrypt`, `decrypt_and_check_padding` and `main`.
 
-2. The `decrypt_and_check_padding` function takes the encrypted data (ciphertext), key (key) and initializing vector (iv) as input parameters and returns Result<bool> indicating whether padding is valid or not or DecryptionError. This function is used to decrypt data and verify the validity of padding with a padding oracle attack. It is important to note that no padding is used here during the decryption (it works in NoPadding mode) just because of the attack demonstration.
+1. The `encrypt` function takes a key, an initialization vector (iv), and a plaintext array as input parameters. It performs symmetric AES encryption in CBC mode with PKCS7 extension. It randomly selects a plaintext from the array, encodes it using base64, encrypts it using AES CBC encryption with the provided key and iv, and returns the encrypted data, the encoded plaintext, and the original plaintext as a tuple.
 
-3. And the main `main` function generates the key and initialization vector, and then starts a loop to encrypt and decrypt messages. This works like a user session demo: one key and one initialization vector are generated, each subsequent message is encrypted using the same parameters until the program exits. At each iteration of the loop, a randomly selected message from the PLAINTEXTS array is encrypted, and then decryption and matching are attempted. The results of encryption, decryption, and verification are displayed on the screen.
+2. The `decrypt_and_check_padding` function takes the encrypted data (ciphertext), the key and the initialization vector as input parameters. It decrypts the ciphertext using AES CBC decryption without padding (for the purpose of a padded oracle attack). It then verifies the validity of the complement using a complement oracle attack. If the complement is valid, it returns `Ok(true)`, indicating that the complement was successfully verified. If the complement is invalid or the decryption process encountered an error, the corresponding `DecryptionError` is returned.
+
+3. The `main` function is the entry point to the program. It generates a key and an initialization vector for the session using the `SessionData` structure, which is created for convenient "memorization" of parameters for encryption sessions so that they are the same according to the task (this is also done to prevent hardcoding in the main function, it does not affect the efficiency, but it is really more beautiful :) ). It enters a loop that encrypts and decrypts the message using the generated key and iv. At each iteration, a random plaintext is selected from the `PLAINTEXTS` array, encrypted, and then decrypted with a space check. The results of encryption, decryption, and hyphenation are displayed on the screen. After each iteration, the user is prompted to continue or exit the cycle.
+
+The code also defines several types of errors (`EncryptionError` and `DecryptionError`) to handle encryption and decryption errors.
+
+In general, this code demonstrates the process of encrypting and decrypting messages using AES CBC encryption with PKCS7 substitution and demonstrates a vulnerability to substitution during the decryption process.
 
 Now let's look at how the code performs a padding oracle attack:
 
@@ -33,6 +39,3 @@ The goal of the padding oracle attack is to use the information about the validi
 The attack works on the principle of going through possible padding byte values and checking the validity of the padding after each modification. If the paddding is valid, it means that the previous byte has a value that makes the paddding correct. By sequentially modifying bytes and analyzing the validity of the paddings, you can recover the byte values of the last data block.
 
 If the padding oracle attack is performed correctly, after iterating over all possible padding byte values for each data block, all byte values of the last block will be restored. This is because each iteration provides information about the value of the previous byte.
-
-
-
