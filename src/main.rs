@@ -31,42 +31,60 @@ static PLAINTEXTS: [&str; 10] = [
     "MDAwMDA5aXRoIG15IHJhZy10b3AgZG93biBzbyBteSBoYWlyIGNhbiBibG93",
 ];
 
-// Function to encrypt plaintext
-fn encrypt(key: &[u8; 16], iv: &[u8; 16], plaintexts: [&str; 10]) -> Result<(Vec<u8>, String, Vec<u8>), EncryptionError> {
-    let mut rng = rand::thread_rng(); // Create a random number generator
-    let random_index = rng.gen_range(0..plaintexts.len()); // Generate a random index within the range of the plaintexts array
-    let plaintext = general_purpose::STANDARD.decode(plaintexts[random_index]).unwrap(); // Retrieve the plaintext at the randomly selected index
-    let encoded_plaintext = general_purpose::STANDARD.encode(&plaintext[..]); // Encode the plaintext using base64 encoding
+// To save parameters for all future encryptions in the session
+struct SessionData {
+    key: [u8; 16],
+    iv: [u8; 16],
+}
 
-    let mut encryptor = aes::cbc_encryptor(KeySize::KeySize128, key, iv, PkcsPadding); // Create an AES CBC encryptor with a key, IV, and padding mode
-    let mut buffer = [0; 1024]; // Create a buffer to store the encrypted data
-
-    // Create read and write buffers for the encryption process
-    let mut read_buffer = crypto::buffer::RefReadBuffer::new(&plaintext);
-    let mut write_buffer = crypto::buffer::RefWriteBuffer::new(&mut buffer);
-
-    let mut encrypted_data = Vec::new(); // Create a vector to store the encrypted data
-
-    // Perform the encryption in a loop until all data is processed
-    loop {
-        let result = encryptor.encrypt(&mut read_buffer, &mut write_buffer, true); // Attempt to encrypt data from the read buffer to the write buffer
-
-        // Handle the result of the encryption operation
-        match result {
-            // If the encryption operation finished and there is no more data to encrypt
-            Ok(BufferResult::BufferUnderflow) => {
-                encrypted_data.extend_from_slice(write_buffer.take_read_buffer().take_remaining()); // Append the remaining data from the write buffer to the encrypted data vector
-                break;
-            }
-            // If the write buffer is full and there is more data to encrypt
-            Ok(BufferResult::BufferOverflow) => {
-                encrypted_data.extend_from_slice(write_buffer.take_read_buffer().take_remaining()); // Append the encrypted data from the write buffer to the encrypted data vector
-            }
-            // If an error occurred during encryption
-            Err(err) => return Err(EncryptionError::SymmetricCipherError(err)),
+// Constructor to make our parameters static for the current session
+impl SessionData {
+    fn new() -> Self {
+        // Generate key & initialization vector
+        let mut rng = rand::thread_rng();
+        Self {
+            key: rng.gen(),
+            iv: rng.gen(),
         }
     }
-    Ok((encrypted_data, encoded_plaintext, plaintext.to_vec())) // Return the encrypted data, encoded plaintext, and original plaintext vector as a result
+
+    // Function to encrypt selected plaintext
+    fn encrypt(&self, plaintexts: [&str; 10]) -> Result<(Vec<u8>, String, Vec<u8>), EncryptionError> {
+        // Generate a random index to select a plaintext from the array
+        let mut rng = rand::thread_rng();
+        let random_index = rng.gen_range(0..plaintexts.len());
+
+        let plaintext = general_purpose::STANDARD.decode(plaintexts[random_index]).unwrap(); // Decode the selected plaintext using the STANDARD decoder
+        let encoded_plaintext = general_purpose::STANDARD.encode(&plaintext[..]); // Encode the plaintext using the STANDARD encoder
+        let mut encryptor = aes::cbc_encryptor(KeySize::KeySize128, &self.key, &self.iv, PkcsPadding); // Create an AES CBC encryptor with KeySize128, using the key and initialization vector (iv)
+
+        let mut buffer = [0; 1024]; // Buffer to hold the encrypted data
+
+        // Create read and write buffers for encryption
+        let mut read_buffer = crypto::buffer::RefReadBuffer::new(&plaintext);
+        let mut write_buffer = crypto::buffer::RefWriteBuffer::new(&mut buffer);
+
+        let mut encrypted_data = Vec::new(); // Vector to hold the encrypted data
+
+        loop {
+            // Perform the encryption operation
+            let result = encryptor.encrypt(&mut read_buffer, &mut write_buffer, true);
+            match result {
+                // If the buffer has underflowed, we have completed encryption
+                Ok(BufferResult::BufferUnderflow) => {
+                    encrypted_data.extend_from_slice(write_buffer.take_read_buffer().take_remaining());
+                    break;
+                }
+                // If the buffer overflows, continue with the next block
+                Ok(BufferResult::BufferOverflow) => {
+                    encrypted_data.extend_from_slice(write_buffer.take_read_buffer().take_remaining());
+                }
+                // Handle encryption error
+                Err(err) => return Err(EncryptionError::SymmetricCipherError(err)),
+            }
+        }
+        Ok((encrypted_data, encoded_plaintext, plaintext.to_vec())) // Return the encrypted data, encoded plaintext, and original plaintext as a tuple
+    }
 }
 
 // Function to decrypt ciphertext and check padding, including padding oracle attack
@@ -82,13 +100,11 @@ fn decrypt_and_check_padding(ciphertext: &[u8], key: &[u8; 16], iv: &[u8; 16]) -
     loop {
         let result = decryptor.decrypt(&mut read_buffer, &mut write_buffer, true);  // Decrypt data from the read buffer to the write buffer
         match result {
-            // If all data has been decrypted
-            Ok(BufferResult::BufferUnderflow) => { 
+            Ok(BufferResult::BufferUnderflow) => {  // If all data has been decrypted
                 decrypted_data.extend_from_slice(write_buffer.take_read_buffer().take_remaining());  // Append the remaining decrypted data to the result vector
-                break; 
+                break;  // Exit the loop
             }
-            // If the write buffer is full
-            Ok(BufferResult::BufferOverflow) => { 
+            Ok(BufferResult::BufferOverflow) => {  // If the write buffer is full
                 decrypted_data.extend_from_slice(write_buffer.take_read_buffer().take_remaining());  // Append the decrypted data to the result vector
             }
             Err(err) => return Err(DecryptionError::SymmetricCipherError(err)),  // Return a decryption error if an error occurs
@@ -97,7 +113,8 @@ fn decrypt_and_check_padding(ciphertext: &[u8], key: &[u8; 16], iv: &[u8; 16]) -
 
     let padding_length = decrypted_data.last().cloned().unwrap_or(0);  // Get the length of the padding
 
-    let mut modified_ciphertext = ciphertext.to_vec(); // Perform padding oracle attack
+    // Perform padding oracle attack
+    let mut modified_ciphertext = ciphertext.to_vec();
 
     // Iterate over the indices of ciphertext in reverse order, with a step of 16 (block size)
     for i in (0..ciphertext.len()).rev().step_by(16) {
@@ -140,24 +157,22 @@ fn decrypt_and_check_padding(ciphertext: &[u8], key: &[u8; 16], iv: &[u8; 16]) -
 
 fn main() {
     // Generate the key and IV for the session
-    let mut rng = rand::thread_rng();
-    let key: [u8; 16] = rng.gen();
-    let iv: [u8; 16] = rng.gen();
+    let session_data = SessionData::new();
 
     loop {
         // Encrypting the plaintext
-        let encryption_result = encrypt(&key, &iv, PLAINTEXTS);
+        let encryption_result = session_data.encrypt(PLAINTEXTS);
         if let Ok((ciphertext, encoded_plaintext, plaintext)) = encryption_result {
             // Decrypting the ciphertext and checking the padding
-            let decryption_result = decrypt_and_check_padding(&ciphertext, &key, &iv);
+            let decryption_result = decrypt_and_check_padding(&ciphertext, &session_data.key, &session_data.iv);
             match decryption_result {
                 Ok(is_padding_valid) => {
                     // Printing the results
                     println!("Encoded Plaintext (Base64): {:?}", encoded_plaintext);
                     println!("Plaintext: {:?}", plaintext.iter().map(|&byte| byte as char).collect::<String>());
                     println!("Ciphertext: {:?}", ciphertext.iter().map(|&byte| format!("{:02X}", byte)).collect::<String>());
-                    println!("Key: {:?}", key.iter().map(|&byte| format!("{:02X}", byte)).collect::<String>());
-                    println!("IV: {:?}", iv.iter().map(|&byte| format!("{:02X}", byte)).collect::<String>());
+                    println!("Key: {:?}", session_data.key.iter().map(|&byte| format!("{:02X}", byte)).collect::<String>());
+                    println!("IV: {:?}", session_data.iv.iter().map(|&byte| format!("{:02X}", byte)).collect::<String>());
                     println!("Is padding valid: {:?}", (is_padding_valid));
                 }
                 Err(DecryptionError::SymmetricCipherError(err)) => {
