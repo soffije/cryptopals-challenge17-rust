@@ -4,7 +4,7 @@ This code is an implementation of an oracle attack on the AES block cipher in CB
 
 The code defines three main functions: `encrypt`, `decrypt_and_check_padding` and `main`.
 
-1. The `encrypt` function takes a key, an initialization vector (iv), and a plaintext array as input parameters. It performs symmetric AES encryption in CBC mode with PKCS7 extension. It randomly selects a plaintext from the array, encodes it using base64, encrypts it using AES CBC encryption with the provided key and iv, and returns the encrypted data, the encoded plaintext, and the original plaintext as a tuple.
+1. The `encrypt` function takes a key, an initialization vector (iv), and a plaintext array as input parameters. It performs symmetric AES encryption in CBC mode with PKCS7 extension. It randomly selects a plaintext from the array, decodes it using base64, encrypts it using AES CBC encryption with the provided key and iv, and returns the encrypted data, the encoded plaintext, and the original plaintext as a tuple.
 
 2. The `decrypt_and_check_padding` function takes the encrypted data (ciphertext), the key and the initialization vector as input parameters. It decrypts the ciphertext using AES CBC decryption without padding (for the purpose of a padded oracle attack). It then verifies the validity of the complement using a complement oracle attack. If the complement is valid, it returns `Ok(true)`, indicating that the complement was successfully verified. If the complement is invalid or the decryption process encountered an error, the corresponding `DecryptionError` is returned.
 
